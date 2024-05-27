@@ -9,6 +9,7 @@ import (
 
 	"github.com/bchr73/carthage"
 	"github.com/bchr73/carthage/node"
+	"github.com/bchr73/carthage/p2p"
 	"github.com/rs/zerolog"
 )
 
@@ -30,6 +31,7 @@ func main() {
 		m.Close()
 		os.Exit(1)
 	}
+	defer m.RPC.Close()
 
 	<-ctx.Done()
 
@@ -44,6 +46,7 @@ func main() {
 type Main struct {
 	Config      carthage.Config
 	Environment string
+	RPC         *node.RPCClient
 }
 
 func NewMain() *Main {
@@ -58,11 +61,24 @@ func (m *Main) Run(ctx context.Context) (err error) {
 
 	log.Info().Msgf("running  %s", m.Environment)
 
-	_, err = node.NewRPCClient(ctx, m.Config)
+	peerService, err := p2p.NewPeerService(ctx, m.Config)
 	if err != nil {
 		log.Error().Err(err).Msg(err.Error())
 		return err
 	}
+	peerService.Start(ctx)
+
+	m.RPC, err = node.NewRPCClient(ctx, m.Config)
+	if err != nil {
+		log.Error().Err(err).Msg(err.Error())
+		return err
+	}
+	_, err = m.RPC.TxPoolSubscribe(ctx, peerService.Send)
+	if err != nil {
+		log.Error().Err(err).Msg(err.Error())
+		return err
+	}
+
 	return nil
 }
 
@@ -101,5 +117,7 @@ func LogLevel(level string) zerolog.Level {
 }
 
 func DefaultConfig() carthage.Config {
-	return carthage.Config{}
+	var config carthage.Config
+	config.P2P.ListenAddr = "/ip4/0.0.0.0/tcp/0"
+	return config
 }

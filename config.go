@@ -8,4 +8,8 @@ type Config struct {
 		RpcIpc bool
 		RpcUri string
 	}
+
+	P2P struct {
+		ListenAddr string
+	}
 }
