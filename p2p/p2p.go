@@ -12,7 +12,6 @@ import (
 	"github.com/libp2p/go-libp2p/core/host"
 	drouting "github.com/libp2p/go-libp2p/p2p/discovery/routing"
 	dutil "github.com/libp2p/go-libp2p/p2p/discovery/util"
-	"github.com/rs/zerolog/log"
 )
 
 type PeerService struct {
@@ -113,6 +112,8 @@ func SHA256(s string) string {
 }
 
 func (ps *PeerService) registerRecv(ctx context.Context, recv *chan *carthage.NodeMessage) {
+	log := carthage.LoggerFromContext(ctx)
+
 	topicName := SHA256("carthagenodemessagetopic_recv")
 
 	err := ps.discoverPeers(ctx, topicName)
