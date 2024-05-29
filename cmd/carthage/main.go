@@ -73,11 +73,12 @@ func (m *Main) Run(ctx context.Context) (err error) {
 		log.Error().Err(err).Msg(err.Error())
 		return err
 	}
-	_, err = m.RPC.TxPoolSubscribe(ctx, peerService.Send)
-	if err != nil {
-		log.Error().Err(err).Msg(err.Error())
-		return err
-	}
+
+	go func() {
+		for m := range peerService.Recv {
+			fmt.Println(string(m.Data))
+		}
+	}()
 
 	return nil
 }

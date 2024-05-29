@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
+	"sync"
 
 	"github.com/bchr73/carthage"
 	"github.com/libp2p/go-libp2p"
@@ -13,6 +14,8 @@ import (
 	drouting "github.com/libp2p/go-libp2p/p2p/discovery/routing"
 	dutil "github.com/libp2p/go-libp2p/p2p/discovery/util"
 )
+
+var topicName = SHA256("carthagenodemessagetopic_main")
 
 type PeerService struct {
 	host    host.Host
@@ -42,8 +45,8 @@ func NewPeerService(ctx context.Context, config carthage.Config) (*PeerService, 
 		return nil, err
 	}
 
-	recv := make(chan *carthage.NodeMessage)
-	send := make(chan *carthage.NodeMessage)
+	recv := make(chan *carthage.NodeMessage, 10000)
+	send := make(chan *carthage.NodeMessage, 10000)
 
 	return &PeerService{
 		host:    host,
@@ -56,8 +59,51 @@ func NewPeerService(ctx context.Context, config carthage.Config) (*PeerService, 
 }
 
 func (ps *PeerService) Start(ctx context.Context) {
-	go ps.registerRecv(ctx, &ps.Recv)
-	go ps.registerSend(ctx, &ps.Send)
+	log := carthage.LoggerFromContext(ctx)
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+
+	go func() {
+		defer wg.Done()
+		err := ps.discoverPeers(ctx, topicName)
+		if err != nil {
+			log.Error().Err(err).Msg(err.Error())
+			return
+		}
+	}()
+	wg.Wait()
+
+	topic, err := ps.joinTopic(topicName)
+	if err != nil {
+		log.Error().Err(err).Msg(err.Error())
+		return
+	}
+
+	go func() {
+		for m := range ps.Send {
+			err := topic.Publish(ctx, m.Data)
+			if err != nil {
+				log.Error().Msgf("publish error %s", err)
+			}
+		}
+	}()
+
+	sub, err := ps.subscribeTopic(topic)
+	if err != nil {
+		log.Error().Err(err).Msg(err.Error())
+		return
+	}
+
+	go func() {
+		for {
+			m, err := sub.Next(ctx)
+			if err != nil {
+				panic(err)
+			}
+			ps.Recv <- &carthage.NodeMessage{Data: m.Data}
+		}
+	}()
 }
 
 func (ps *PeerService) discoverPeers(ctx context.Context, topicName string) error {
@@ -109,62 +155,4 @@ func SHA256(s string) string {
 	h := sha256.New()
 	h.Write([]byte(s))
 	return fmt.Sprintf("%x", h.Sum(nil))
-}
-
-func (ps *PeerService) registerRecv(ctx context.Context, recv *chan *carthage.NodeMessage) {
-	log := carthage.LoggerFromContext(ctx)
-
-	topicName := SHA256("carthagenodemessagetopic_recv")
-
-	err := ps.discoverPeers(ctx, topicName)
-	if err != nil {
-		log.Error().Err(err).Msg(err.Error())
-		return
-	}
-
-	topic, err := ps.joinTopic(topicName)
-	if err != nil {
-		log.Error().Err(err).Msg(err.Error())
-		return
-	}
-
-	sub, err := ps.subscribeTopic(topic)
-	if err != nil {
-		log.Error().Err(err).Msg(err.Error())
-		return
-	}
-
-	for {
-		m, err := sub.Next(ctx)
-		if err != nil {
-			panic(err)
-		}
-		fmt.Println(string(m.Data))
-		*recv <- &carthage.NodeMessage{Data: m.Data}
-	}
-}
-
-func (ps *PeerService) registerSend(ctx context.Context, send *chan *carthage.NodeMessage) {
-	log := carthage.LoggerFromContext(ctx)
-
-	topicName := SHA256("carthagenodemessagetopic_send")
-
-	err := ps.discoverPeers(ctx, topicName)
-	if err != nil {
-		log.Error().Err(err).Msg(err.Error())
-		return
-	}
-
-	topic, err := ps.joinTopic(topicName)
-	if err != nil {
-		log.Error().Err(err).Msg(err.Error())
-		return
-	}
-
-	for m := range *send {
-		err := topic.Publish(ctx, m.Data)
-		if err != nil {
-			log.Error().Msgf("publish error %s", err)
-		}
-	}
 }
