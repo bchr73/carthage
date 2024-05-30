@@ -23,8 +23,8 @@ type PeerService struct {
 	routing *drouting.RoutingDiscovery
 	pbsb    *pubsub.PubSub
 
-	Recv chan *carthage.NodeMessage
-	Send chan *carthage.NodeMessage
+	Recv chan *carthage.P2PMessage
+	Send chan *carthage.P2PMessage
 }
 
 func NewPeerService(ctx context.Context, config carthage.Config) (*PeerService, error) {
@@ -45,8 +45,8 @@ func NewPeerService(ctx context.Context, config carthage.Config) (*PeerService, 
 		return nil, err
 	}
 
-	recv := make(chan *carthage.NodeMessage, 10000)
-	send := make(chan *carthage.NodeMessage, 10000)
+	recv := make(chan *carthage.P2PMessage, 10000)
+	send := make(chan *carthage.P2PMessage, 10000)
 
 	return &PeerService{
 		host:    host,
@@ -101,7 +101,7 @@ func (ps *PeerService) Start(ctx context.Context) {
 			if err != nil {
 				panic(err)
 			}
-			ps.Recv <- &carthage.NodeMessage{Data: m.Data}
+			ps.Recv <- &carthage.P2PMessage{Data: m.Data}
 		}
 	}()
 }

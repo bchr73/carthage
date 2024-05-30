@@ -88,7 +88,7 @@ type FullPendingTransactionsSubscription struct {
 	sub *rpc.ClientSubscription
 }
 
-func (r *RPCClient) TxPoolSubscribe(ctx context.Context, nm chan *carthage.NodeMessage) (*FullPendingTransactionsSubscription, error) {
+func (r *RPCClient) TxPoolSubscribe(ctx context.Context, nm chan *carthage.P2PMessage) (*FullPendingTransactionsSubscription, error) {
 	ch := make(chan *types.Transaction)
 
 	client := gethclient.New(r.c)
@@ -105,7 +105,7 @@ func (r *RPCClient) TxPoolSubscribe(ctx context.Context, nm chan *carthage.NodeM
 					continue
 				}
 				m := fmt.Sprintf("hash: %s to: %s cost: %s, nonce: %d\n", tx.Hash(), tx.To(), tx.Cost(), tx.Nonce())
-				nm <- &carthage.NodeMessage{Data: []byte(m)}
+				nm <- &carthage.P2PMessage{Data: []byte(m)}
 			case err := <-sub.Err():
 				fmt.Println(err)
 				return
