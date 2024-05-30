@@ -1,1 +1,2 @@
-cmd/carthage/carthage
+cmd/carthage/carthaged
+cmd/carthage-client/carthage-client
