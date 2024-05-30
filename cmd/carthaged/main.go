@@ -31,7 +31,7 @@ func main() {
 		m.Close()
 		os.Exit(1)
 	}
-	defer m.RPC.Close()
+	defer m.NodeService.Close()
 
 	<-ctx.Done()
 
@@ -46,7 +46,8 @@ func main() {
 type Main struct {
 	Config      carthage.Config
 	Environment string
-	RPC         *node.RPCClient
+	PeerService carthage.PeerService
+	NodeService carthage.NodeService
 }
 
 func NewMain() *Main {
@@ -68,11 +69,12 @@ func (m *Main) Run(ctx context.Context) (err error) {
 	}
 	peerService.Start(ctx)
 
-	m.RPC, err = node.NewRPCClient(ctx, m.Config)
+	m.NodeService, err = node.NewNodeService(ctx, m.Config)
 	if err != nil {
 		log.Error().Err(err).Msg(err.Error())
 		return err
 	}
+	go m.NodeService.Start(ctx)
 
 	go func() {
 		for m := range peerService.Recv {

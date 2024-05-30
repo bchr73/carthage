@@ -19,12 +19,13 @@ func NewNodeService(ctx context.Context, config carthage.Config) (*NodeService, 
 		return nil, err
 	}
 
-	//if err := m.RPC.TxPoolSubscribe(ctx); err != nil {
-	//	log.Error().Err(err).Msg(err.Error())
-	//	return err
-	//}
-
 	return &NodeService{
 		rpc: rpc,
 	}, nil
 }
+
+func (ns *NodeService) Close() {
+	ns.rpc.Close()
+}
+
+func (ns *NodeService) Start(ctx context.Context) {}

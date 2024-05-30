@@ -4,4 +4,7 @@ type P2PMessage struct {
 	Data []byte
 }
 
-type PeerService interface{}
+type PeerService interface {
+	Start()
+	Close()
+}

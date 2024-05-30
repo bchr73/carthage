@@ -58,6 +58,8 @@ func NewPeerService(ctx context.Context, config carthage.Config) (*PeerService, 
 	}, nil
 }
 
+func (ps *PeerService) Close() {}
+
 func (ps *PeerService) Start(ctx context.Context) {
 	log := carthage.LoggerFromContext(ctx)
 
