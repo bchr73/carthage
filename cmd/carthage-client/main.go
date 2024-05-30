@@ -76,7 +76,7 @@ func (m *Main) Run(ctx context.Context) (err error) {
 			if err != nil {
 				panic(err)
 			}
-			peerService.Send <- &carthage.P2PMessage{Data: []byte(s)}
+			peerService.Send <- &carthage.PeerMessage{Data: []byte(s)}
 		}
 	}()
 

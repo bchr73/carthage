@@ -1,6 +1,6 @@
 package carthage
 
-type P2PMessage struct {
+type PeerMessage struct {
 	Data []byte
 }
 
