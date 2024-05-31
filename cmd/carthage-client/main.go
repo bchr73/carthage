@@ -80,6 +80,12 @@ func (m *Main) Run(ctx context.Context) (err error) {
 		}
 	}()
 
+	go func() {
+		for peerMessage := range peerService.Recv {
+			fmt.Println(string(peerMessage.Data))
+		}
+	}()
+
 	return nil
 }
 

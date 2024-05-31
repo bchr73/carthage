@@ -69,16 +69,34 @@ func (m *Main) Run(ctx context.Context) (err error) {
 	}
 	peerService.Start(ctx)
 
+	nodeResultChan := make(chan *carthage.RPCResult, 10000)
+
 	m.NodeService, err = node.NewNodeService(ctx, m.Config)
 	if err != nil {
 		log.Error().Err(err).Msg(err.Error())
 		return err
 	}
-	go m.NodeService.Start(ctx)
+	go m.NodeService.Start(ctx, nodeResultChan)
 
 	go func() {
-		for m := range peerService.Recv {
-			fmt.Println(string(m.Data))
+		for peerMessage := range peerService.Recv {
+			var call carthage.RPCCall
+			if err := call.JsonUnmarshal(peerMessage.Data); err != nil {
+				log.Error().Msg(err.Error())
+				continue
+			}
+			m.NodeService.Call(&call)
+		}
+	}()
+
+	go func() {
+		for result := range nodeResultChan {
+			b, err := result.JsonMarshal()
+			if err != nil {
+				log.Error().Msg(err.Error())
+				continue
+			}
+			peerService.Send <- &carthage.PeerMessage{Data: b}
 		}
 	}()
 
