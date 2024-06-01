@@ -9,7 +9,6 @@ import (
 	"os/signal"
 
 	"github.com/bchr73/carthage"
-	"github.com/bchr73/carthage/node"
 	"github.com/bchr73/carthage/p2p"
 	"github.com/rs/zerolog"
 )
@@ -32,7 +31,6 @@ func main() {
 		m.Close()
 		os.Exit(1)
 	}
-	defer m.RPC.Close()
 
 	<-ctx.Done()
 
@@ -47,7 +45,6 @@ func main() {
 type Main struct {
 	Config      carthage.Config
 	Environment string
-	RPC         *node.RPCClient
 }
 
 func NewMain() *Main {
