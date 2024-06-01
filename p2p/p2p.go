@@ -2,8 +2,6 @@ package p2p
 
 import (
 	"context"
-	"crypto/sha256"
-	"fmt"
 	"sync"
 
 	"github.com/bchr73/carthage"
@@ -15,7 +13,10 @@ import (
 	dutil "github.com/libp2p/go-libp2p/p2p/discovery/util"
 )
 
-var topicName = SHA256("carthagenodemessagetopic_main")
+const (
+	TOPICNAME_NODE   = "b2bda31ed1603dc57ef0fea802c117fa8f23db2c5664dd9557b95860d86dc6db"
+	TOPICNAME_CLIENT = "cf7a3efe5479ce71fc7a9faee3ae9549e666f4c7613322fd996c051748e16a69"
+)
 
 type PeerService struct {
 	host    host.Host
@@ -60,52 +61,27 @@ func NewPeerService(ctx context.Context, config carthage.Config) (*PeerService, 
 
 func (ps *PeerService) Close() {}
 
-func (ps *PeerService) Start(ctx context.Context) {
+func (ps *PeerService) Start(ctx context.Context, sendTopicName string, receiveTopicName string) {
 	log := carthage.LoggerFromContext(ctx)
 
 	var wg sync.WaitGroup
-	wg.Add(1)
 
-	go func() {
-		defer wg.Done()
-		err := ps.discoverPeers(ctx, topicName)
-		if err != nil {
-			log.Error().Err(err).Msg(err.Error())
-			return
-		}
-	}()
+	for _, topicName := range []string{sendTopicName, receiveTopicName} {
+		wg.Add(1)
+		go func(topicName string) {
+			defer wg.Done()
+			err := ps.discoverPeers(ctx, topicName)
+			if err != nil {
+				log.Error().Err(err).Msg(err.Error())
+				return
+			}
+		}(topicName)
+	}
 	wg.Wait()
+	log.Info().Msg("peer discovery complete")
 
-	topic, err := ps.joinTopic(topicName)
-	if err != nil {
-		log.Error().Err(err).Msg(err.Error())
-		return
-	}
-
-	go func() {
-		for m := range ps.Send {
-			err := topic.Publish(ctx, m.Data)
-			if err != nil {
-				log.Error().Msgf("publish error %s", err)
-			}
-		}
-	}()
-
-	sub, err := ps.subscribeTopic(topic)
-	if err != nil {
-		log.Error().Err(err).Msg(err.Error())
-		return
-	}
-
-	go func() {
-		for {
-			m, err := sub.Next(ctx)
-			if err != nil {
-				panic(err)
-			}
-			ps.Recv <- &carthage.PeerMessage{Data: m.Data}
-		}
-	}()
+	go ps.registerPeerMessageChan(ctx, sendTopicName, false)
+	go ps.registerPeerMessageChan(ctx, receiveTopicName, true)
 }
 
 func (ps *PeerService) discoverPeers(ctx context.Context, topicName string) error {
@@ -132,20 +108,19 @@ func (ps *PeerService) discoverPeers(ctx context.Context, topicName string) erro
 			anyConnected = true
 		}
 	}
-	log.Info().Msg("peer discovery complete")
 
 	return nil
 }
 
-func (p2 *PeerService) joinTopic(topicName string) (*pubsub.Topic, error) {
-	topic, err := p2.pbsb.Join(topicName)
+func (ps *PeerService) joinTopic(topicName string) (*pubsub.Topic, error) {
+	topic, err := ps.pbsb.Join(topicName)
 	if err != nil {
 		return nil, err
 	}
 	return topic, nil
 }
 
-func (p2 *PeerService) subscribeTopic(topic *pubsub.Topic) (*pubsub.Subscription, error) {
+func (ps *PeerService) subscribeTopic(topic *pubsub.Topic) (*pubsub.Subscription, error) {
 	sub, err := topic.Subscribe()
 	if err != nil {
 		return nil, err
@@ -153,8 +128,38 @@ func (p2 *PeerService) subscribeTopic(topic *pubsub.Topic) (*pubsub.Subscription
 	return sub, nil
 }
 
-func SHA256(s string) string {
-	h := sha256.New()
-	h.Write([]byte(s))
-	return fmt.Sprintf("%x", h.Sum(nil))
+func (ps *PeerService) registerPeerMessageChan(ctx context.Context, topicName string, subscribe bool) {
+	log := carthage.LoggerFromContext(ctx)
+
+	topic, err := ps.joinTopic(topicName)
+	if err != nil {
+		log.Error().Err(err).Msg(err.Error())
+		return
+	}
+
+	if subscribe {
+		sub, err := ps.subscribeTopic(topic)
+		if err != nil {
+			log.Error().Err(err).Msg(err.Error())
+			return
+		}
+		go func() {
+			for {
+				m, err := sub.Next(ctx)
+				if err != nil {
+					panic(err)
+				}
+				ps.Recv <- &carthage.PeerMessage{Data: m.Data}
+			}
+		}()
+	} else {
+		go func() {
+			for m := range ps.Send {
+				err := topic.Publish(ctx, m.Data)
+				if err != nil {
+					log.Error().Msgf("publish error %s", err)
+				}
+			}
+		}()
+	}
 }

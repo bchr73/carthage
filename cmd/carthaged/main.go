@@ -67,7 +67,7 @@ func (m *Main) Run(ctx context.Context) (err error) {
 		log.Error().Err(err).Msg(err.Error())
 		return err
 	}
-	peerService.Start(ctx)
+	peerService.Start(ctx, p2p.TOPICNAME_CLIENT, p2p.TOPICNAME_NODE)
 
 	nodeResultChan := make(chan *carthage.RPCResult, 10000)
 

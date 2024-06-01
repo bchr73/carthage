@@ -67,7 +67,7 @@ func (m *Main) Run(ctx context.Context) (err error) {
 		log.Error().Err(err).Msg(err.Error())
 		return err
 	}
-	peerService.Start(ctx)
+	peerService.Start(ctx, p2p.TOPICNAME_NODE, p2p.TOPICNAME_CLIENT)
 
 	go func() {
 		reader := bufio.NewReader(os.Stdin)
